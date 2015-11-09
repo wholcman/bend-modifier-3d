@@ -1,0 +1,116 @@
+<html>
+	<head>
+		<meta charset="utf-8" />
+		<link rel="stylesheet" href="style.css" type="text/css">
+	</head>
+	<body>
+	</body>
+	<script id="vertex" type="x-shader/x-vertex">
+		vec3 bend(vec3 ip, float ba, vec2 b, float o, float a) {
+			vec3 op = ip;
+			ip.x = op.x * cos(a) - op.y * sin(a);
+			ip.y = op.x * sin(a) + op.y * cos(a);
+			if(ba != 0.0) {
+				float radius = b.y / ba;
+				float onp = (ip.x - b.x) / b.y - o;
+				ip.z = cos(onp * ba) * radius - radius;
+				ip.x = (b.x + b.y * o) + sin(onp * ba) * radius;
+			}
+			op = ip;
+			ip.x = op.x * cos(-a) - op.y * sin(-a);
+			ip.y = op.x * sin(-a) + op.y * cos(-a);
+			return ip;
+		}
+		varying vec2 vUv;
+		uniform float bendAngle;
+		uniform vec2 bounds;
+		uniform float bendOffset;
+		uniform float bendAxisAngle;
+		void main(void) {
+			vUv = uv;	
+			vec3 p = bend(position, bendAngle, bounds, bendOffset, bendAxisAngle);
+			gl_Position = projectionMatrix * modelViewMatrix * vec4(p,1.0);
+		}
+	</script>
+	<script id="fragment" type="x-shader/x-fragment">
+		uniform sampler2D colorTexture;
+		varying vec2 vUv;
+		void main(void) {
+			gl_FragColor = texture2D( colorTexture, vUv );
+		}
+	</script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r73/three.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.5.1/dat.gui.js"></script>
+	<script>
+		var plane;
+		var renderer;
+		var tickuid = 0;
+		var camera;
+		var scene;
+
+		var properties = {
+			bendAngle : -1.8,
+			offset : 0.5,
+			bendAxisAngle : 0,
+			rotationX : 0,
+			rotationY : 0,
+			rotationZ : 0
+		}
+
+		var gui = new dat.GUI();
+		gui.domElement.style.position = 'absolute';
+		gui.domElement.style.top = '0px';
+		gui.domElement.style.left = '0px';
+		gui.domElement.style.zIndex = 9999;
+		document.body.appendChild( gui.domElement );
+		gui.add(properties, 'bendAngle').min(Math.PI * -2).max(Math.PI * 2).listen();
+		gui.add(properties, 'offset').min(0).max(1);
+		gui.add(properties, 'bendAxisAngle').min(Math.PI * -0.5).max(Math.PI * 0.5);
+		gui.add(properties, 'rotationX').min(Math.PI * -0.5).max(Math.PI * 0.5);
+		gui.add(properties, 'rotationY').min(Math.PI * -0.5).max(Math.PI * 0.5);
+		gui.add(properties, 'rotationZ').min(Math.PI * -0.5).max(Math.PI * 0.5);
+
+		renderer = new THREE.WebGLRenderer({alpha:true, clearColor: 0x000000, antialias: true})
+		renderer.setPixelRatio(window.devicePixelRatio)
+		renderer.setSize(window.innerWidth, window.innerHeight)
+		document.body.appendChild(renderer.domElement)
+
+		camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 10000)
+		camera.position.z = 1500;
+
+		scene = new THREE.Scene()
+		material = new THREE.ShaderMaterial({
+			vertexShader:  document.getElementById("vertex").firstChild.nodeValue,
+			fragmentShader:  document.getElementById("fragment").firstChild.nodeValue,
+			side:THREE.DoubleSide
+		});
+
+		material.uniforms = {
+			colorTexture: { type: "t", value: THREE.ImageUtils.loadTexture('tex.png')},
+			bounds: { type: "v2", value : {x:-500, y:900} },
+			bendOffset: { type: "f", value : properties.offset },
+			bendAngle: { type: "f", value : properties.bendAngle },
+			bendAxisAngle: { type: "f", value : properties.bendAxisAngle }
+		};
+		
+		plane = new THREE.Mesh( new THREE.PlaneGeometry( 500, 900, 100, 100 ), material )
+		plane.position.z = 100
+		scene.add( plane )
+
+		function update() {
+			tickuid += 0.02;
+			properties.bendAngle = Math.sin(tickuid) * Math.PI * 2;
+			plane.material.uniforms.bendAngle.value =  properties.bendAngle;	
+			plane.material.uniforms.bendOffset.value = properties.offset;
+			plane.material.uniforms.bendAxisAngle.value  = properties.bendAxisAngle;
+			plane.rotation.x = properties.rotationX;
+			plane.rotation.y = properties.rotationY;
+			plane.rotation.z = properties.rotationZ;
+			requestAnimationFrame(update);	
+			renderer.render(scene, camera)
+		}
+
+		update();
+
+	</script>
+</html>
